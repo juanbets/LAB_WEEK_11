@@ -1,0 +1,68 @@
+Juan Elbert (00000089763) - Assignment LAB Week 11
+
+Jawaban:
+1). Kode yang menangani penyimpanan gambar ke path berdasarkan URI yang diberikan:
+Bagian ini ditangani oleh class ProviderFileManager, tepatnya di fungsi private insertToStore. Fungsi ini menerima FileInfo (yang berisi Uri), content Uri target MediaStore, dan ContentValues, lalu menyalin file ke MediaStore menggunakan Uri tersebut.
+
+Source Code:
+private fun insertToStore(fileInfo: FileInfo, contentUri: Uri,
+    contentValues: ContentValues) {
+    executor.execute {
+        val insertedUri = contentResolver.insert(contentUri,
+            contentValues)
+        insertedUri?.let {
+            val inputStream =
+                contentResolver.openInputStream(fileInfo.uri)
+            val outputStream =
+                contentResolver.openOutputStream(insertedUri)
+            IOUtils.copy(inputStream, outputStream)
+            inputStream?.close()
+            outputStream?.close()
+        }
+    }
+}
+
+
+2). Penjelasan atribut pertama dan keempat di FileInfo.kt:
+Source Code:
+data class FileInfo(
+    val uri: Uri,
+    val file: File,
+    val name: String,
+    val relativePath: String,
+    val mimeType: String
+)
+
+Penjelasannya:
+1. Atribut pertama – uri (type: Uri)
+uri adalah FileProvider URI yang menunjuk ke file sementara di external files directory milik aplikasi, misalnya: /storage/emulated/0/Android/data/com.example.lab_week_11_a/files/Pictures/...
+Uri ini dikirim ke intent kamera sehingga aplikasi kamera tahu persis kemana harus menyimpan hasil foto / video. Uri yang sama juga dipakai lagi oleh ContentResolver.openInputStream(fileInfo.uri) ketika file tersebut akan disalin ke MediaStore.
+
+2. Atribut keempat – relativePath (type: String)
+relativePath adalah folder relatif di dalam external storage / MediaStore tempat file final akan disimpan. Di aplikasi ini biasanya nilainya Environment.DIRECTORY_PICTURES untuk foto atau Environment.DIRECTORY_MOVIES untuk video. MediaContentHelper memakai nilai ini untuk mengisi field RELATIVE_PATH di ContentValues sehingga gambar atau video akan muncul di direktori Pictures atau Movies yang benar di MediaStore.
+
+
+3). Urutan kronologi dari user mengambil foto sampai file tersimpan di MediaStore:
+1. Pengguna/user menekan tombol “Photo” di MainActivity
+Listener klik set isCapturingVideo = false lalu memanggil checkStoragePermission { openImageCapture() }.
+
+2. Cek permission storage dengan fungsi checkStoragePermission cek WRITE_EXTERNAL_STORAGE
+- Kalau sudah diizinkan langsung lanjut ke openImageCapture().
+- Kalau belum diizinkan minta izin kalau user setuju, onRequestPermissionsResult akan memanggil openImageCapture().
+
+3. Siapkan file & Uri untuk kamera dengan fungsi openImageCapture() memanggil providerFileManager.generatePhotoUri(...). Di situ dibuat:
+- nama file (img_<timestamp>.jpg),
+- File di getExternalFilesDir(Pictures),
+- Uri lewat FileHelper.getUriFromFile(...),
+- lalu semuanya dibungkus ke FileInfo. Setelah itu takePictureLauncher.launch(photoInfo.uri) dipanggil.
+
+4. Kamera menulis file ke Uri tersebut
+Kontrak ActivityResultContracts.TakePicture mengirim Uri ke aplikasi kamera. Kemudian, kamera menulis hasil foto langsung ke file itu. Setelah selesai, callback TakePicture di MainActivity dipanggil dan menjalankan providerFileManager.insertImageToStore(photoInfo).
+
+5. Salin file ke MediaStore dengan fungsi insertImageToStore menyiapkan contentUri dan ContentValues, lalu memanggil insertToStore(...). Di insertToStore, aplikasi:
+- insert row baru ke MediaStore (dapat insertedUri),
+- buka InputStream dari fileInfo.uri dan OutputStream ke insertedUri,
+- salin data dengan IOUtils.copy(...).
+
+6. Hasil akhir
+Foto sekarang resmi tersimpan di MediaStore di folder relativePath (misalnya Pictures/) dengan nama dan mimeType yang benar, sehingga bisa muncul di Gallery / Google Photos dan aplikasi lain.
