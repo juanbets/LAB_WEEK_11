@@ -37,6 +37,7 @@ android {
 
 dependencies {
 
+    implementation("commons-io:commons-io:2.21.0")
     implementation("androidx.datastore:datastore-preferences:1.1.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.4")
